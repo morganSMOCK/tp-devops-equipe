@@ -14,7 +14,7 @@ jobs:
       - name: Preuve executeur local
         run: echo "Ce job tourne sur mon PC !"
 
-  # PARTIE 4 & 6: Tests en Parallèle
+  # PARTIE 4 & 6: Tests en parallèle
   test-unitaire:
     needs: job-local
     runs-on: ubuntu-latest
