@@ -2,16 +2,16 @@ name: Pipeline CI-CD Equipe
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ] # Déclenchement automatique sur push
   pull_request:
-    branches: [ main ]
+    branches: [ main ] # Déclenchement sur PR
 
 jobs:
   # PARTIE 2: Job sur runner local
   job-local:
     runs-on: self-hosted
     steps:
-      - name: Preuve exécuteur local
+      - name: Preuve executeur local
         run: echo "Ce job tourne sur mon PC !"
 
   # PARTIE 4 & 6: Tests en Parallèle
@@ -20,50 +20,54 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run Unit Test
-        [cite_start]run: echo "Test unitaire OK" [cite: 30, 31]
-      # PARTIE 5: Création Artefact
+        run: echo "Test unitaire OK" # Valide un composant isole
+      
+      # PARTIE 5: Creation Artefact
       - name: Create Report
-        [cite_start]run: echo "Rapport de test" > rapport.txt [cite: 41, 42]
+        run: echo "Rapport de test genere le $(date)" > rapport.txt
       - uses: actions/upload-artifact@v4
         with:
           name: test-results
-          [cite_start]path: rapport.txt [cite: 40, 48]
+          path: rapport.txt
+          retention-days: 5 # Duree de conservation definie
 
   test-integration:
     needs: job-local
     runs-on: ubuntu-latest
     steps:
       - name: Run Integration Test
-        [cite_start]run: echo "Test integration OK" [cite: 32, 33]
+        run: echo "Test integration OK" # Valide interaction entre elements
 
-  # PARTIE 5: Réutilisation Artefact
+  # PARTIE 5: Reutilisation Artefact
   analyse:
     needs: test-unitaire
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
-          [cite_start]name: test-results [cite: 43, 45]
+          name: test-results
       - name: Use Artifact
-        run: cat rapport.txt
+        run: cat rapport.txt # Le job B utilise l'artefact du job A
 
   # PARTIE 3 & 7: Secrets et Build Environnements
   build:
     needs: [test-unitaire, test-integration]
     strategy:
       matrix:
-        [cite_start]environment: [staging, production] [cite: 58]
+        environment: [staging, production] # Au moins 2 environnements
     runs-on: ubuntu-latest
     env:
-      [cite_start]APP_CONFIG: "V1.0-Stable" [cite: 24, 25]
-      [cite_start]MY_SECRET: ${{ secrets.MY_DB_PASSWORD }} [cite: 25]
+      APP_CONFIG: "V1.0-Stable" # Variable non sensible
+      MY_SECRET: ${{ secrets.MY_DB_PASSWORD }} # Secret protege
     steps:
       - name: Build Proof
         run: |
-          echo "Variable: $APP_CONFIG"
-          echo "Secret: $MY_SECRET" # Sera masqué par *** [cite: 26]
-          echo "Build pour ${{ matrix.environment }}" > build.log
+          echo "Variable config : $APP_CONFIG"
+          echo "Secret (doit etre masque) : $MY_SECRET" # Ne doit jamais apparaitre en clair
+          echo "Build pour l'environnement : ${{ matrix.environment }}" > build.log
+      
+      # PARTIE 7: Artefact associe au build
       - uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.environment }}
-          [cite_start]path: build.log [cite: 63]
+          path: build.log
