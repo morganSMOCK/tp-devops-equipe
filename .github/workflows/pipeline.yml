@@ -7,11 +7,63 @@ on:
     branches: [ main ]
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest # On utilise GitHub pour l'instant pour valider le flux
+  # PARTIE 2: Job sur runner local
+  job-local:
+    runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
-      - name: Install dependencies
+      - name: Preuve exécuteur local
+        run: echo "Ce job tourne sur mon PC !"
+
+  # PARTIE 4 & 6: Tests en Parallèle
+  test-unitaire:
+    needs: job-local
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Unit Test
+        [cite_start]run: echo "Test unitaire OK" [cite: 30, 31]
+      # PARTIE 5: Création Artefact
+      - name: Create Report
+        [cite_start]run: echo "Rapport de test" > rapport.txt [cite: 41, 42]
+      - uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          [cite_start]path: rapport.txt [cite: 40, 48]
+
+  test-integration:
+    needs: job-local
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Integration Test
+        [cite_start]run: echo "Test integration OK" [cite: 32, 33]
+
+  # PARTIE 5: Réutilisation Artefact
+  analyse:
+    needs: test-unitaire
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          [cite_start]name: test-results [cite: 43, 45]
+      - name: Use Artifact
+        run: cat rapport.txt
+
+  # PARTIE 3 & 7: Secrets et Build Environnements
+  build:
+    needs: [test-unitaire, test-integration]
+    strategy:
+      matrix:
+        [cite_start]environment: [staging, production] [cite: 58]
+    runs-on: ubuntu-latest
+    env:
+      [cite_start]APP_CONFIG: "V1.0-Stable" [cite: 24, 25]
+      [cite_start]MY_SECRET: ${{ secrets.MY_DB_PASSWORD }} [cite: 25]
+    steps:
+      - name: Build Proof
         run: |
-          cd backend
-          npm install
+          echo "Variable: $APP_CONFIG"
+          echo "Secret: $MY_SECRET" # Sera masqué par *** [cite: 26]
+          echo "Build pour ${{ matrix.environment }}" > build.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.environment }}
+          [cite_start]path: build.log [cite: 63]
