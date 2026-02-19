@@ -1,74 +1,79 @@
 name: Pipeline CI-CD Equipe
 
 on:
-  push:
-    [cite_start]branches: [ main ] # Déclenchement auto sur push [cite: 13]
-  pull_request:
-    [cite_start]branches: [ main ] # Déclenchement sur PR [cite: 14]
+  [cite_start]push: # Déclenchement automatique sur push [cite: 13]
+    branches: [ main ]
+  [cite_start]pull_request: # Déclenchement sur PR [cite: 14]
+    branches: [ main ]
 
-jobs: # <-- Cette ligne était manquante ou mal placée !
-  
-  # PARTIE 2: Runner local [cite: 20]
+jobs:
+  # PARTIE 2: Runner local (Agent dédié) [cite: 18, 20]
   setup-local:
-    runs-on: self-hosted 
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
         run: |
-          echo "Exécution sur le runner local"
+          echo "Job exécuté sur l'exécuteur local"
           cd backend && npm install
 
-  # PARTIE 4 & 6: Tests et Parallélisation [cite: 30, 32, 53]
-  tests:
+  # PARTIE 4 & 6: Tests (Unitaire + Intégration) et Parallélisation [cite: 30, 32, 53]
+  unit-tests:
     needs: setup-local
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Run Unit Test
-        run: |
-          echo "Exécution test unitaire..."
-          exit 0 # Simule un succès [cite: 31]
+        [cite_start]run: exit 0 # Valide un composant isolé [cite: 31]
       
-      - name: Run Integration Test
-        run: |
-          echo "Exécution test intégration..."
-          exit 0 # Simule un succès [cite: 35]
-
-      # PARTIE 5: Création d'artefact [cite: 40, 41]
-      - name: Save Test Report
-        run: echo "Rapport du $(date)" > report.txt
+      # PARTIE 5: Produire un artefact de test [cite: 40, 41]
+      - name: Generate Report
+        run: echo "Succès des tests" > unit-report.log
       - uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: report.txt
-          [cite_start]retention-days: 1 # Durée définie [cite: 49]
+          path: unit-report.log
+          [cite_start]retention-days: 5 [cite: 49]
 
-  # PARTIE 3 & 7: Secrets et Build Environnements [cite: 25, 57]
-  build:
-    needs: tests
-    strategy:
-      matrix:
-        [cite_start]environment: [staging, production] # 2 envs [cite: 58]
+  integration-tests:
+    needs: setup-local
     runs-on: ubuntu-latest
-    env:
-      [cite_start]APP_CONFIG: "Config-V1" # Variable non sensible [cite: 25]
-      [cite_start]MY_SECRET: ${{ secrets.MY_DB_PASSWORD }} # Secret [cite: 25]
     steps:
       - uses: actions/checkout@v4
-      
-      # Preuve pour la Partie 3
-      - name: Check Variables and Secrets
-        run: |
-          echo "Variable (visible) : $APP_CONFIG"
-          echo "Secret (masqué) : $MY_SECRET" 
-          
-      # Preuve pour la Partie 7
-      - name: Build Application
-        run: |
-          echo "Build pour l'environnement : ${{ matrix.environment }}" > build.log
-          echo "Cible : ${{ matrix.environment }}" >> build.log
+      - name: Run Integration Test
+        [cite_start]run: exit 0 # Valide interaction API > BDD [cite: 33]
 
+  # PARTIE 5: Réutilisation d'un artefact par un autre job [cite: 43]
+  analysis:
+    needs: unit-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-results
+      - name: Process Artifact
+        [cite_start]run: cat unit-report.log # Utilise l'artefact du job A [cite: 45]
+
+  # PARTIE 3 & 7: Variables, Secrets et Build par environnement [cite: 24, 56]
+  build:
+    needs: [unit-tests, integration-tests]
+    strategy:
+      matrix:
+        [cite_start]environment: [staging, production] # 2 environnements [cite: 58]
+    runs-on: ubuntu-latest
+    env:
+      [cite_start]APP_CONFIG: "Configuration_v1" # Variable non sensible [cite: 25]
+      [cite_start]MY_SECRET: ${{ secrets.MY_DB_PASSWORD }} # Secret masqué [cite: 25]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Proof
+        run: |
+          echo "Config: $APP_CONFIG" # Apparaît dans les logs [cite: 26]
+          echo "Secret: $MY_SECRET" # Masqué (***) [cite: 26]
+          echo "Build pour ${{ matrix.environment }}" > build-${{ matrix.environment }}.log
+      
+      # PARTIE 7: Artefact associé au build [cite: 63]
       - uses: actions/upload-artifact@v4
         with:
-          name: build-artifact-${{ matrix.environment }}
-          path: build.log
+          name: build-${{ matrix.environment }}
+          path: build-${{ matrix.environment }}.log
