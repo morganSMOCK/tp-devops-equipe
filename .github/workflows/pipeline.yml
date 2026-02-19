@@ -1,10 +1,74 @@
-steps:
+name: Pipeline CI-CD Equipe
+
+on:
+  push:
+    [cite_start]branches: [ main ] # Déclenchement auto sur push [cite: 13]
+  pull_request:
+    [cite_start]branches: [ main ] # Déclenchement sur PR [cite: 14]
+
+jobs: # <-- Cette ligne était manquante ou mal placée !
+  
+  # PARTIE 2: Runner local [cite: 20]
+  setup-local:
+    runs-on: self-hosted 
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          echo "Exécution sur le runner local"
+          cd backend && npm install
+
+  # PARTIE 4 & 6: Tests et Parallélisation [cite: 30, 32, 53]
+  tests:
+    needs: setup-local
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Unit Test
+        run: |
+          echo "Exécution test unitaire..."
+          exit 0 # Simule un succès [cite: 31]
+      
+      - name: Run Integration Test
+        run: |
+          echo "Exécution test intégration..."
+          exit 0 # Simule un succès [cite: 35]
+
+      # PARTIE 5: Création d'artefact [cite: 40, 41]
+      - name: Save Test Report
+        run: echo "Rapport du $(date)" > report.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: report.txt
+          [cite_start]retention-days: 1 # Durée définie [cite: 49]
+
+  # PARTIE 3 & 7: Secrets et Build Environnements [cite: 25, 57]
+  build:
+    needs: tests
+    strategy:
+      matrix:
+        [cite_start]environment: [staging, production] # 2 envs [cite: 58]
+    runs-on: ubuntu-latest
+    env:
+      [cite_start]APP_CONFIG: "Config-V1" # Variable non sensible [cite: 25]
+      [cite_start]MY_SECRET: ${{ secrets.MY_DB_PASSWORD }} # Secret [cite: 25]
+    steps:
       - uses: actions/checkout@v4
       
-      - name: Demo Variables et Secrets
-        env:
-          APP_CONFIG: "Version-Stable-1.0"      # Variable non sensible
-          MY_SECRET: ${{ secrets.MY_DB_PASSWORD }} # Appel du secret
+      # Preuve pour la Partie 3
+      - name: Check Variables and Secrets
         run: |
-          echo "La config est : $APP_CONFIG"
-          echo "Le mot de passe BDD est : $MY_SECRET"
+          echo "Variable (visible) : $APP_CONFIG"
+          echo "Secret (masqué) : $MY_SECRET" 
+          
+      # Preuve pour la Partie 7
+      - name: Build Application
+        run: |
+          echo "Build pour l'environnement : ${{ matrix.environment }}" > build.log
+          echo "Cible : ${{ matrix.environment }}" >> build.log
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact-${{ matrix.environment }}
+          path: build.log
