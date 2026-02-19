@@ -1,0 +1,10 @@
+steps:
+      - uses: actions/checkout@v4
+      
+      - name: Demo Variables et Secrets
+        env:
+          APP_CONFIG: "Version-Stable-1.0"      # Variable non sensible
+          MY_SECRET: ${{ secrets.MY_DB_PASSWORD }} # Appel du secret
+        run: |
+          echo "La config est : $APP_CONFIG"
+          echo "Le mot de passe BDD est : $MY_SECRET"
